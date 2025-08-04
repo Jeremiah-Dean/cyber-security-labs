@@ -1,0 +1,56 @@
+Lab Report: Server-Side Parameter Pollution
+Lab Title: Server-side parameter pollution
+Objective: Exploit server-side parameter pollution to retrieve a password reset token and gain access to the administrator account.
+Tools Used:
+•	Burp Suite (Community or Professional)
+•	Burp’s Embedded Browser
+•	HTTP History, Repeater, and Intruder tabs
+________________________________________
+Procedure and Findings
+1. Initial Exploration
+•	Triggered a password reset for the administrator account using Burp's embedded browser.
+•	Identified the POST /forgot-password request in Proxy > HTTP History.
+•	Located associated JavaScript: /static/js/forgotPassword.js, which revealed the use of a reset_token in the password reset endpoint.
+________________________________________
+2. Testing Request Behavior
+•	Sent the POST /forgot-password request to Repeater for testing.
+•	Verified that submitting username=administrator returns a consistent valid response.
+•	Changed the username to administratorx — this resulted in an Invalid username error, confirming input validation on the server.
+________________________________________
+3. Attempting Server-Side Parameter Pollution
+•	Modified the username parameter to include a URL-encoded ampersand (%26) to simulate a second parameter:
+username=administrator%26x=y
+Result: Received a Parameter is not supported error, indicating the server interpreted x=y as a separate parameter.
+•	Attempted to truncate the query string using a URL-encoded hash (%23):
+ini
+username=administrator%23
+Result: Received a Field not specified error, indicating the presence of an expected field parameter.
+•	Injected an invalid field parameter using both techniques:
+username=administrator%26field=x%23
+Result: Invalid field error, confirming the server parsed field=x as a separate parameter.
+________________________________________
+4. Brute-Forcing Server-Side Parameter Name
+•	Sent the same request to Intruder:
+username=administrator%26field=§x§%23
+•	Used the built-in Server-side variable names payload list.
+•	Found that the username and email payloads both returned 200 OK responses.
+________________________________________
+5. Retrieving the Password Reset Token
+•	In Repeater, updated the request to use:
+username=administrator%26field=reset_token%23
+•	Result: Server returned a valid password reset token.
+________________________________________
+6. Completing the Exploit
+•	Entered the following endpoint in Burp's browser with the captured token:
+/forgot-password?reset_token=RETRIEVED_TOKEN
+•	Successfully set a new password for the administrator account.
+•	Logged in using the new credentials.
+•	Accessed the Admin panel and deleted user carlos to solve the lab.
+________________________________________
+Conclusion
+This lab demonstrated how improper parsing of parameters on the server-side can be exploited via Server-Side Parameter Pollution (SSPP). By injecting multiple parameters using URL-encoded characters, we were able to:
+•	Circumvent input validation.
+•	Retrieve a sensitive reset_token.
+•	Take over the administrator account.
+This highlights the importance of strict server-side parameter parsing and input sanitization to prevent injection-based attacks.
+
